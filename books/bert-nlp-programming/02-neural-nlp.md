@@ -83,65 +83,71 @@ Ex) v(日本) - v(東京) ≒ v(フランス) - v(パリ), v(日本) + v(首都)
 2. 渡されたトークンを語彙に従いIDに変換
 
 ## 4. Formula
-- 文章Sの出現確率(w1,w2,w3… = トークン, ci = 文脈(context))
-p(S) = p(w1,w2,w3…) = p(w1) x p(w2 | w1) x p(w3 | w1,w2)… = n Π i=1 p(wi | ci)
-したがって、文章全体の出現確率は、各時点における条件付き確率の積としてモデル化できる。
 
-- 分類器
-分類問題のゴールはデータxが与えられたときにそのラベルlをよく観測できるモデル
-- 出力
-y = F(x,θ) (カテゴリーの数と同じ次元を持つベクトル)
-(N = カテゴリー数, x = データを表現するベクトル, l = ラベル, θ = 調整可能なパラメータ）
+- **文章 $S$ の出現確率** ($w_1, w_2, w_3, \dots$ = トークン, $c_i$ = 文脈(context))
+  $$p(S) = p(w_1, w_2, w_3, \dots) = p(w_1) \times p(w_2 \mid w_1) \times p(w_3 \mid w_1, w_2) \dots = \prod_{i=1}^{n} p(w_i \mid c_i)$$
+  したがって、文章全体の出現確率は、各時点における条件付き確率の積としてモデル化できる。
 
-- 各カテゴリーの予測確率(SoftMax関数)
-pi = exp(yi)/Σ N j=1 exp(yj) (i=1,2,…N)
-ここで、0<pi<1であり、p1+p2+…+pn=1を満たすため、(p1,p2…pn)を確率分布として扱える。
+- **分類器**
+  分類問題のゴールは、データ $x$ が与えられたときに、そのラベル $l$ を最もよく予測できるモデルを構築することである。
+- **出力**
+  $$y = F(x, \theta)$$
+  ($N$ = カテゴリー数, $x$ = データを表現するベクトル, $l$ = ラベル, $\theta$ = 調整可能なパラメータ, $y$ = カテゴリーの数と同じ次元を持つベクトル)
 
-- 損失関数
-ズレを定量的に表現する、パラメータの関数 L(y,l) L = (1/m) Σ m i=1 L(yi, li), L(y,l) ‎ =  -log pi(クロスエントロピー損失）
+- **各カテゴリーの予測確率 (Softmax関数)**
+  $$p_i = \frac{\exp(y_i)}{\sum_{j=1}^{N} \exp(y_j)} \quad (i=1, 2, \dots, N)$$
+  ここで、$0 < p_i < 1$ であり、$\sum p_i = 1$ を満たすため、$(p_1, p_2, \dots, p_n)$ を確率分布として扱える。
 
-- コサイン類似度（正規化されたベクトル同士の内積）
-cos(x,y) = x・y / |x| |y|
+- **損失関数**
+  ズレを定量的に表現するパラメータの関数 $L(y, l)$：
+  $$L = \frac{1}{m} \sum_{i=1}^{m} L(y_i, l_i), \quad L(y, l) = -\log p_l \text{ (クロスエントロピー損失)}$$
 
-- CBOWの文脈
-v(Ci) = 1/2c Σ wj∈Ci vc(wj)
-- 文脈Ciにおいて、語彙中のj番目のトークンsjの出現しやすさ
-v(Ci)・vt(sj)
-- Softmax関数で確率に変換した結果(語彙数Nに比例) p(wi = sj | Ci) = exp{v(Ci)・vt(sj)}/Σ N k=1 exp{v(Ci)・vt(sk)}
+- **コサイン類似度** (正規化されたベクトル同士の内積)
+  $$\text{cos}(x, y) = \frac{x \cdot y}{\|x\| \|y\|}$$
 
--skip-Gramの確率分布
-p(sj|wi) = exp{vc(wi)・vt(sj)}/ΣN k=1 exp{vc(wi)・vt(sk)}
+- **CBOWの文脈ベクトル**
+  $$v(C_i) = \frac{1}{2c} \sum_{w_j \in C_i} v_c(w_j)$$
+- **文脈 $C_i$ における語彙中の $j$ 番目のトークン $s_j$ の出現しやすさ**
+  $$v(C_i) \cdot v_t(s_j)$$
+- **Softmax関数による確率変換** (語彙数 $N$ に比例)
+  $$p(w_i = s_j \mid C_i) = \frac{\exp(v(C_i) \cdot v_t(s_j))}{\sum_{k=1}^{N} \exp(v(C_i) \cdot v_t(s_k))}$$
 
-- RNNの出力
-hi = φ(Axi+Bhi-1+b) (i=1,2,…,n)
-(hi = RNNの出力, xi = 同時刻の入力, hi-1 = 前時刻のRNNの出力, A/B = 行列, b = ベクトル, φ = 活性化関数, h0 = 初期値 = 適当に決めたベクトル）
-φ(Axi+Bhi-1+b) (i=1,2,…,n) ‎ =  φ(xi,hi-1)仮定、
-hi = φ(xi,hi-1) = φ(xi, φ(xi-1,hi-2)) = φ(xi, φ(xi-1, φ(xi-2,hi-3)))…
-RNNは現在時刻以前に行われた入力{xi}考慮して、出力を計算可能
+- **skip-gramの確率分布**
+  $$p(s_j \mid w_i) = \frac{\exp(v_c(w_i) \cdot v_t(s_j))}{\sum_{k=1}^{N} \exp(v_c(w_i) \cdot v_t(s_k))}$$
 
-- 言語モデルとしてのRNN
-hi = hi-1(w1,w2,…,wi-1)
-p(wi=sj | w1,w2,…,wi-1) = exp(h’i-1,j)/Σ N k=1 exp(h’ i-1,k)
-~hi = φ(~Axi + ~B~hi+1 + ~b) (i=1,2,…,n)
-hi^(1) = φ(A^(1)xi+B^(1)h^(1)i-1+b^(1)) hi^(k) = φ(A^(k)hi^(k-1)+B^(k)h^(k)i-1+b^(k))
-(入力xi = 単語wiの分散表現, h’i-1 = すべての語彙に出現確率を割り当てるため、出力に適当な線形変換を用いて、語彙と同じサイズにしたベクトル, ベクトルh’i-1のj番目の要素h’i-1,j)
+- **RNNの出力**
+  $$h_i = \phi(Ax_i + Bh_{i-1} + b) \quad (i=1, 2, \dots, n)$$
+  ($h_i$ = RNNの出力, $x_i$ = 同時刻の入力, $h_{i-1}$ = 前時刻の出力, $A, B$ = 重み行列, $b$ = バイアス, $\phi$ = 活性化関数, $h_0$ = 初期値)
+  
+  $h_i = \phi(x_i, h_{i-1})$ と仮定すると：
+  $$h_i = \phi(x_i, \phi(x_{i-1}, h_{i-2})) = \phi(x_i, \phi(x_{i-1}, \phi(x_{i-2}, h_{i-3}))) \dots$$
+  RNNは現在時刻以前のすべての入力系列 $\{x_i\}$ を考慮して出力を計算可能である。
 
-- LSTMの出力
-yi = φ(Axi+Bhi-1+b) (xi = 現在時刻の入力, yi = 出力)
-- LSTMの重み
-gI = σ(AIxi+BIhi-1+bI)
-gF = σ(AFxi+BFhi-1+bF)
-gO = σ(AOxi+BOhi-1+bO)
-ci = gI◉yi+gF◉ci-1 hi = gO◉tanh(ci)
-(xi = 現在時刻の入力, hi-1 = 1つ前の時刻の出力, gI(Input Gate),gF(Forget Gate),gO(Output Gate) = 重みベクトル, σ = 活性化関数(要素ごとにシグモイド関数を適用し、重みベクトルの各要素の値域は(0,1)に抑えられる), ◉ = 要素ごとの積)
+- **言語モデルとしてのRNN**
+  $$h_i = h_{i-1}(w_1, w_2, \dots, w_{i-1})$$
+  $$p(w_i = s_j \mid w_1, w_2, \dots, w_{i-1}) = \frac{\exp(h'_{i-1, j})}{\sum_{k=1}^{N} \exp(h'_{i-1, k})}$$
+  $$\tilde{h}_i = \phi(\tilde{A}x_i + \tilde{B}\tilde{h}_{i+1} + \tilde{b}) \quad (i=1, 2, \dots, n)$$
+  $$h_i^{(1)} = \phi(A^{(1)}x_i + B^{(1)}h_{i-1}^{(1)} + b^{(1)})$$
+  $$h_i^{(k)} = \phi(A^{(k)}h_i^{(k-1)} + B^{(k)}h_{i-1}^{(k)} + b^{(k)})$$
+  (入力 $x_i$ = 単語 $w_i$ の分散表現, $h'_{i-1}$ = 線形変換後の出力ベクトル, $h'_{i-1, j}$ = 語彙サイズに対応するベクトルの $j$ 番目の要素)
 
-- 言語モデルとしてのELMo
-順方向の多層LSTM(文章の前の文章と文脈)と逆方向の多層LSTM(文章の後の文章と文脈)からの予測確率を組み合わせて、損失関数
-- Σ n i=1 log p(wi | w1, w2,…,wi-1) + log p(wi | wi+1, wi+2,…,wn)
-を用いて学習する。予測対象以外の全てを文脈として考慮していると言える。
+- **LSTMの出力候補**
+  $$y_i = \phi(Ax_i + Bh_{i-1} + b)$$
+- **LSTMのゲート制御と状態更新**
+  $$g_I = \sigma(A_Ix_i + B_Ih_{i-1} + b_I) \quad \text{(Input Gate)}$$
+  $$g_F = \sigma(A_Fx_i + B_Fh_{i-1} + b_F) \quad \text{(Forget Gate)}$$
+  $$g_O = \sigma(A_Ox_i + B_Oh_{i-1} + b_O) \quad \text{(Output Gate)}$$
+  $$c_i = g_I \odot y_i + g_F \odot c_{i-1} \quad \text{(Cell State)}$$
+  $$h_i = g_O \odot \tanh(c_i) \quad \text{(Hidden State)}$$
+  ($\sigma$ = シグモイド関数, $\odot$ = 要素ごとの積)
 
-- 特徴量抽出器としてのELMo
-ElMoを用いてi番目の単語wiの特徴量を抽出することを想定した場合、順方向LSTMの出力hi^(k)と逆方向LSTMの出力~hi^(k)を結合したベクトルzi^(k)は単語wiの文脈を考慮した分散表現になっているため、ELMoから文脈を考慮した単語分散表現を得れると言える。
+- **言語モデルとしてのELMo**
+  順方向と逆方向の多層LSTMを組み合わせた損失関数：
+  $$- \sum_{i=1}^{n} \left( \log p(w_i \mid w_1, \dots, w_{i-1}) + \log p(w_i \mid w_{i+1}, \dots, w_n) \right)$$
+  を用いて学習する。予測対象以外のすべての文脈を考慮していると言える。
+
+- **特徴量抽出器としてのELMo**
+  $i$ 番目の単語 $w_i$ の特徴量を抽出する場合、順方向の出力 $h_i^{(k)}$ と逆方向の出力 $\tilde{h}_i^{(k)}$ を結合する。この結合ベクトル $z_i^{(k)}$ は、文脈を考慮した高度な単語分散表現となる。
 
 ## 5. Draft Questions
 - LLMの性能が英語や日本語によって変わるのは言語自体の差から生まれるものなのか？
