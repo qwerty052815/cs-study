@@ -3,7 +3,7 @@
 
 ## 1. Core Idea
 [3-1 BERTの構造]
-- **Attention(注意機構)**：トークンの情報を処理する際に、他のトークンの情報を直接に参照して処理を行う方法。離れた位置の都くんの情報も適切に取り入れることが可能なため、より深く文脈を考慮したト分散表現を得れる。
+- **Attention(注意機構)**：トークンの情報を処理する際に、他のトークンの情報を直接に参照して処理を行う方法。離れた位置のトークンの情報も適切に取り入れることが可能なため、より深く文脈を考慮したト分散表現を得れる。
 - Transformer Encoder＝モデルTransformerから提案された、Attentionを用いたニューラルネットワーク。それぞれの層は主にMulti-Head AttenionとFeedforward Networkから構成される。
 - Transformer＝トークン化によって得られた文章の構成要素
 1. **Scaled Dot-Product Attention**＝Transformerでクエリとキーを評価する方法
