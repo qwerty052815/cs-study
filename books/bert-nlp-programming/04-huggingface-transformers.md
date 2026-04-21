@@ -17,8 +17,39 @@
 - Bertでデータを処理する場合、
 
 ## 2. Result
-[出力の一部]
-4-4
+[1. コードの目的]
+配布コードはモデルのinstall・import部分とモデルを実際利用する部分に分割できる。
+
+
+[2. 重要な一部分]
+# 4-4　関数tokenize()
 tokenizer.tokenize('明日は自然言語処理の勉強をしよう。')
 ['明日', 'は', '自然', '言語', '処理', 'の', '勉強', 'を', 'しよ', '##う', '。']
 
+# 4-7　関数encode()
+input_ids = tokenizer.encode('明日は自然言語処理の勉強をしよう。')
+print(input_ids)
+[2, 11475, 9, 1757, 1882, 2762, 5, 8192, 11, 2132, 28489, 8, 3]
+
+# 4-8　関数convert_ids_to_tokens()
+tokenizer.convert_ids_to_tokens(input_ids)
+
+
+[3. Q&A]
+Q1. install・import部分で何故Bertだけではなく、torchもインポートするのか？torchはこのコードでどの機能を果たすのか？
+A1. 
+
+Q2. install・import部分に以下のコードがあるが、何故トークナイザーとモデルが分けられているのか？Bertが多言語対応をするためなのか？逆に、モデルはトークン化とエンコーディング以外のニューラルネットワークの全ての機能を持っているのか？
+「from transformers import BertJapaneseTokenizer, BertModel」
+A2. 
+
+Q3. 配布コードには存在しない「unidic-lite」というライブラリーがないとコードが正常に作動しなかった。unidic-liteはどのようなライブラリーで、このコードでどういう機能を果たすのか？
+
+Q4. 文章を入力するとトークンのリストを出力する関数tokenizer()はなぜ以下のようにプリンター命令があるコードがある場合は出力されないのか？
+tokenizer.tokenize('機械学習を中国語にすると机器学习だ。')　→　出力可能
+input_ids = tokenizer.encode('明日は自然言語処理の勉強をしよう。')
+print(input_ids)　→　トークナイザーの結果は出力不可能
+
+
+
+## 3. AI Feedback
