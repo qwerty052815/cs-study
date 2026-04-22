@@ -7,12 +7,9 @@
 - ライブラリのバージョン更新や細かな調整を除き、基本的には配布コードの内容に沿って進める。
 
 ### [4-2 Bertを用いた文章の穴埋め]
-- **Transformers**：Hugging Face社が提供しているオープンソースライブラリ。BERTをはじめとする、多様なニューラルネットワークを用いた言語モデルが実装されている。多言語の学習済みモデルが利用可能である点も特徴の一つである。本書の配布コードでは、東北大学の研究チームが作成した日本語のBERT学習済みモデルを使用する。処理の流れとしては、まずトークナイザーを用いて文章をトークン化し、そのデータをBERTに入力して出力を得る。
 - **BertForMaskedLM**：Transformersで提供されているクラス。特殊トークン[MASK]に入るトークンを語彙から予測できる。
-
-- **トークン化の手順**
-1. MeCabを用いて単語に分割する（辞書には基本的にipadicが用いられる）。
-2. WordPieceを用いて単語をさらにトークンへ分割する。
+- **貪欲法**：穴埋めにおいて膨大な計算を避けるための近似的方法。最初の[MASK]に一番スコアが高いトークンを穴埋めし、穴埋め後の文章に対して、次の[MASK]を同様に穴埋めする方法を繰り返す。文章の大部分が[MASK]であると、意味がある文章を出力しずらいという課題がある。GPTはこの方法で事前学習を行う。
+- **ビームサーチ**：[MASK]を一つ穴埋めするたびに、合計スコアが高い10の文章を候補として残しておき、それをもとに次の[MASK]の穴埋めを行い、また合計スコアの高い10の文章を候補を得るということを繰り返す方法。文章の大部分が[MASK]であると、意味がある文章を出力しずらいという課題がある。
 
 ## 2. Result
 ### [1. コードの目的]
@@ -20,52 +17,107 @@
 
 ### [2. 重要なコード抜粋]
 
-**# 4-4**　`tokenize()`関数
+**# 5-5**　
 ```python
-tokenizer.tokenize('明日は自然言語処理の勉強をしよう。')
-# 出力: ['明日', 'は', '自然', '言語', '処理', 'の', '勉強', 'を', 'しよ', '##う', '。']
+# BERTに入力し、分類スコアを得る。
+# 系列長を揃える必要がないので、単にiput_idsのみを入力します。
+with torch.no_grad():
+    output = bert_mlm(input_ids=input_ids)
+    scores = output.logits
 ```
 
-**# 4-7**　`encode()`関数
+**# 5-6**
 ```python
-input_ids = tokenizer.encode('明日は自然言語処理의 공부를 하자.')
-print(input_ids)
-# 出力: [2, 11475, 9, 1757, 1882, 2762, 5, 8192, 11, 2132, 28489, 8, 3]
+# ID列で'[MASK]'(IDは4)の位置を調べる
+mask_position = input_ids[0].tolist().index(4)
+
+# スコアが最も良いトークンのIDを取り出し、トークンに変換する。
+id_best = scores[0, mask_position].argmax(-1).item()
+token_best = tokenizer.convert_ids_to_tokens(id_best)
+token_best = token_best.replace('##', '')
+
+# [MASK]を上で求めたトークンで置き換える。
+text = text.replace('[MASK]',token_best)
+
+print(text)
+# 出力: 今日は東京へ行く。
 ```
 
-**# 4-8** `convert_ids_to_tokens()`関数
+**# 5-7**
 ```python
-tokenizer.convert_ids_to_tokens(input_ids)
+# スコアが上位のトークンとスコアを求める。
+mask_position = input_ids[0].tolist().index(4)
+topk = scores[0, mask_position].topk(num_topk)
+ids_topk = topk.indices # トークンのID
+tokens_topk = tokenizer.convert_ids_to_tokens(ids_topk) # トークン
+scores_topk = topk.values.cpu().numpy() # スコア
 # 出力: ['[CLS]', '明日', 'は', '自然', '言語', '処理', 'の', '勉強', 'を', 'しよ', '##う', '。', '[SEP]']
 ```
 
-**# 4-14** BERTをGPUに転送
+**# 5-8** 貪欲法
 ```python
-bert = bert.cuda()
+# 5-8
+def greedy_prediction(text, tokenizer, bert_mlm):
+    """
+    [MASK]を含む文章を入力として、貪欲法で穴埋めを行った文章を出力する。
+    """
+    # 前から順に[MASK]を一つづつ、スコアの最も高いトークンに置き換える。
+    for _ in range(text.count('[MASK]')):
+        text = predict_mask_topk(text, tokenizer, bert_mlm, 1)[0][0]
+    return text
+
+text = '今日は[MASK][MASK]へ行く。'
+greedy_prediction(text, tokenizer, bert_mlm)
+# 出力: 今日は、東京へ行く。
 ```
 
-**# 4-16** データをGPUに転送
+**# 5-10** ビームサーチ
 ```python
-encoding = { k: v.cuda() for k, v in encoding.items() }
-```
+def beam_search(text, tokenizer, bert_mlm, num_topk):
+    """
+    ビームサーチで文章の穴埋めを行う。
+    """
+    num_mask = text.count('[MASK]')
+    text_topk = [text]
+    scores_topk = np.array([0])
+    for _ in range(num_mask):
+        # 現在得られている、それぞれの文章に対して、
+        # 最初の[MASK]をスコアが上位のトークンで穴埋めする。
+        text_candidates = [] # それぞれの文章を穴埋めした結果を追加する。
+        score_candidates = [] # 穴埋めに使ったトークンのスコアを追加する。
+        for text_mask, score in zip(text_topk, scores_topk):
+            text_topk_inner, scores_topk_inner = predict_mask_topk(
+                text_mask, tokenizer, bert_mlm, num_topk
+            )
+            text_candidates.extend(text_topk_inner)
+            score_candidates.append( score + scores_topk_inner )
 
-**# 4-19** 推論の実行
-```python
-with torch.no_grad():
-    output = bert(**encoding)
-    last_hidden_state = output.last_hidden_state  # 勾配計算を行わないため、メモリ消費と計算時間を抑えられる。
-```
+        # 穴埋めにより生成された文章の中から合計スコアの高いものを選ぶ。
+        score_candidates = np.hstack(score_candidates)
+        idx_list = score_candidates.argsort()[::-1][:num_topk]
+        text_topk = [ text_candidates[idx] for idx in idx_list ]
+        scores_topk = score_candidates[idx_list]
 
-**# 4-20** 後処理
-```python
-last_hidden_state = last_hidden_state.cpu() # CPUに転送
-last_hidden_state = last_hidden_state.numpy() # numpy.ndarrayに変換
-last_hidden_state = last_hidden_state.tolist() # リストに変換
+    return text_topk
+
+text = "今日は[MASK][MASK]へ行く。"
+text_topk = beam_search(text, tokenizer, bert_mlm, 10)
+print(*text_topk, sep='\n')
+# 出力: 今日はお台場へ行く。
+今日はお祭りへ行く。
+今日はゲームセンターへ行く。
+今日はお風呂へ行く。
+今日はゲームショップへ行く。
+今日は東京ディズニーランドへ行く。
+今日はお店へ行く。
+今日は同じ場所へ行く。
+今日はあの場所へ行く。
+今日は同じ学校へ行く。
 ```
 
 ### [3. Q&A]
 
-**Q1. インストール・インポート部分で、なぜBERTだけでなくnumpyもインポートするのか？ numpyはこのコードでどのような役割を果たすのか？**
+**Q1. インストール・インポート部分で、なぜBERTだけでなくnumpyもインポートするのか？numpyはこのコードでどのような役割を果たすのか？**
 
 A1. 
 
@@ -77,25 +129,29 @@ A2.
 
 A3. 
 
-**Q4. `tokenizer.tokenize()`の結果は表示されるが、`input_ids = tokenizer.encode(...)`のように変数に代入して`print(input_ids)`を行う場合、なぜトークン化の中間結果（文字列のリスト）は表示されないのか？**
+**Q4. 推論と学習では、モデルのレイヤー計算（forward処理）は同じなのか？それとも一部だけ計算されるのか？**　あ
 
-A4. Jupyter/Colab環境では、セルの最後の行に値を置くと自動的にその内容が表示されますが、変数への代入文（input_ids = ...）は出力を生成しないためです。また、encode()関数は内部的にトークン化（tokenize）と数値化（convert_tokens_to_ids）を同時に行い、最終的なID列（数値のリスト）のみを返す仕様になっています。中間段階の文字列リストを確認したい場合は、tokenize()関数を個別に呼び出す必要があります。\
+A4. 
 
-**Q5. `convert_ids_to_tokens()`関数を呼び出すと、なぜ自動的に改行された形式で出力されるのか？**
+**Q5. ニューラルネットワークにおける「勾配（gradient）」とは何を意味し、どのようにモデルの更新に関与するのか？**
 
-A5. これはPythonのリストオブジェクトがJupyter Notebookの出力セルに表示される際の、環境（IPython）によるデフォルトのフォーマット形式に依存します。要素数が多いリストや特定の文字を含むリストを表示する場合、視認性を高めるために1要素ごとに改行して表示されることがあります。
+A5. 
 
-**Q6. ID列の長さを揃えるために使われる「padding」と「truncation」は、コード内で具体的にどのような役割を果たすのか？**
+**Q6. `with torch.no_grad():`は単なるコードブロック構文なのか？それとも計算の振る舞いを変更する仕組みなのか？**　あ
 
-A6. ニューラルネットワークは通常、固定長の入力を一括処理（バッチ処理）します。「padding」は短い文章に対して特定のID（[PAD]）を追加して長さを揃える役割を持ち、「truncation」は最大長（例：512トークン）を超える長い文章を切り捨てる役割を持ちます。これにより、異なる長さの文章を一つの行列（テンソル）として効率よく計算できるようになります。
+A6. 
 
-**Q7. テンソル（Tensor）はこのコードにおいてどのような役割を果たすのか？**
+**Q7. `token_best = token_best.replace('##','')`のこの文章はコードでどういう役割を果たすのか？**
 
-A7. テンソルはPyTorchにおける多次元配列のデータ形式であり、モデルが計算を行うための標準的な「数値の器」です。Pythonの通常のリストに比べ、GPUを用いた高速な並列演算に最適化されています。Transformersのモデルは、入力データがテンソル形式であることを前提に設計されています。
+A7. 
 
-**Q8. 4-17で`token_type_ids=encoding['token_type_ids']`を含むコードを実行した際、エラーが発生した。その行を削除してもテンソルサイズなどの後続の処理結果に影響がなかったのはなぜか？**
+**Q8. 貪欲法とビームサーチ以外の方法にはどういうものがあるのか？**
 
-A8. token_type_idsは、2つの文章を同時に入力する際に（例：質問と回答）、どちらが1番目か2番目かを区別するためのものです（セグメントID）。単一の文章のみを入力する場合、BERTは内部的にすべてを「最初の文章」として処理するため、このIDを明示的に渡さなくてもデフォルト値（すべて0）が使用され、結果に影響が出なかったと考えられます。
+A8. 
+
+**Q9. `text_candidates.extend(text_topk_inner)、score_candidates.append( score + scores_topk_inner)`のこの文章はそれぞれコードでどういう役割を果たすのか？**
+
+A9. 
 
 ## 3. AI Feedback
 #### 構成と論理性の評価
