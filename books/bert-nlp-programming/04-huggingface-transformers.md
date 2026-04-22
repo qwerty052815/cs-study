@@ -48,25 +48,20 @@ tokenizer.convert_ids_to_tokens(input_ids)
  '[SEP]']
 
 # 4-14
-# BERTをGPUに載せる
-bert = bert.cuda()
+bert = bert.cuda()　# BERTをGPUに載せる
 
 # 4-16
-# データをGPUに載せる
-encoding = { k: v.cuda() for k, v in encoding.items() }
+encoding = { k: v.cuda() for k, v in encoding.items() }　# データをGPUに載せる
 
-# 4-19 計算の途中過程が保存されず、メモリーや計算時間を減らせる。
+# 4-19 
 with torch.no_grad():
     output = bert(**encoding)
-    last_hidden_state = output.last_hidden_state
+    last_hidden_state = output.last_hidden_state　# 計算の途中過程が保存されず、メモリーや計算時間を減らせる。
 
 # 4-20
-# CPUにうつす。
-last_hidden_state = last_hidden_state.cpu()
-# numpy.ndarrayに変換
-last_hidden_state = last_hidden_state.numpy()
- # リストに変換
-last_hidden_state = last_hidden_state.tolist()
+last_hidden_state = last_hidden_state.cpu() # CPUにうつす。
+last_hidden_state = last_hidden_state.numpy() # numpy.ndarrayに変換
+last_hidden_state = last_hidden_state.tolist() # リストに変換
 
 
 [3. Q&A]
