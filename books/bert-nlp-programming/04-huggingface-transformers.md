@@ -22,16 +22,16 @@
 実装部分では、トークナイザーを利用した簡単なトークン化・エンコーディングし、その結果をBertモデルに適用することを目的とすると思われる。
 
 [2. 重要な一部分]
-# 4-4　関数tokenize()
+#4-4　関数tokenize()
 tokenizer.tokenize('明日は自然言語処理の勉強をしよう。')
 ['明日', 'は', '自然', '言語', '処理', 'の', '勉強', 'を', 'しよ', '##う', '。']
 
-# 4-7　関数encode()
+#4-7　関数encode()
 input_ids = tokenizer.encode('明日は自然言語処理の勉強をしよう。')
 print(input_ids)
 [2, 11475, 9, 1757, 1882, 2762, 5, 8192, 11, 2132, 28489, 8, 3]
 
-# 4-8　関数convert_ids_to_tokens()
+#4-8 関数convert_ids_to_tokens()
 tokenizer.convert_ids_to_tokens(input_ids)
 ['[CLS]',
  '明日',
@@ -47,18 +47,18 @@ tokenizer.convert_ids_to_tokens(input_ids)
  '。',
  '[SEP]']
 
-# 4-14
+#4-14
 bert = bert.cuda()　# BERTをGPUに載せる
 
-# 4-16
+#4-16
 encoding = { k: v.cuda() for k, v in encoding.items() }　# データをGPUに載せる
 
-# 4-19 
+#4-19 
 with torch.no_grad():
     output = bert(**encoding)
     last_hidden_state = output.last_hidden_state　# 計算の途中過程が保存されず、メモリーや計算時間を減らせる。
 
-# 4-20
+#4-20
 last_hidden_state = last_hidden_state.cpu() # CPUにうつす。
 last_hidden_state = last_hidden_state.numpy() # numpy.ndarrayに変換
 last_hidden_state = last_hidden_state.tolist() # リストに変換
