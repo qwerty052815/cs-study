@@ -27,7 +27,7 @@ tokenizer.tokenize('明日は自然言語処理の勉強をしよう。')
 
 **# 4-7**　`encode()`関数
 ```python
-input_ids = tokenizer.encode('明日は自然言語処理의 공부를 하자.')
+input_ids = tokenizer.encode('明日は自然言語処理の勉強をしよう.')
 print(input_ids)
 # 出力: [2, 11475, 9, 1757, 1882, 2762, 5, 8192, 11, 2132, 28489, 8, 3]
 ```
